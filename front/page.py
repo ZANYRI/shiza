@@ -21,7 +21,7 @@ def serve_layout():
             html.Button('Выход', id='logout-button'),
             html.Div(id='logout-message'),
             dcc.Interval(id='session-timer', interval=1000, n_intervals=0),
-            dcc.Store(id='inactive-time', data=0)
+            dcc.Store(id='inactive-time', data=0)  # Таймер активности
         ])
     else:
         return html.Div([
@@ -63,9 +63,9 @@ def login(n_clicks, username, password):
 )
 def logout(n_clicks, n_intervals, inactive_time):
     global user_info
-    if n_clicks or inactive_time >= 600:  # 600 секунд = 10 минут
+    if n_clicks or (inactive_time or 0) >= 600:  # Если кнопка "Выход" нажата или 10 минут прошло
         requests.post(f"{SERVER_URL}/logout")
-        user_info.clear()
+        user_info = {"username": None, "role": None}  # Сброс пользователя
         return "Сессия завершена. Обновите страницу для входа снова."
     return ""
 
@@ -99,7 +99,8 @@ def update_inactive_time(n_intervals, inactive_time):
     dash.dependencies.State('inactive-time', 'data')
 )
 def reset_timer_on_activity(n_intervals, data):
-    return 0
+    return 0  # Всегда возвращает сброс таймера
+
 
 # Запуск приложения
 if __name__ == '__main__':
