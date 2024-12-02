@@ -76,19 +76,22 @@ def logout(n_clicks, n_intervals, inactive_time):
     [dash.dependencies.State('inactive-time', 'data')]
 )
 def update_inactive_time(n_intervals, inactive_time):
-    return inactive_time + 1
+    return (inactive_time or 0) + 1  # Если inactive_time == None, установить в 0
 
 # Клиентский callback для сброса таймера активности
 @app.clientside_callback(
     """
     function(n_intervals, data) {
+        if (data === null || data === undefined) {
+            data = 0;  // Инициализация, если данные не установлены
+        }
         document.body.onmousemove = function() {
             DashRenderer.emit('reset_timer');
         };
         document.body.onclick = function() {
             DashRenderer.emit('reset_timer');
         };
-        return data;
+        return 0;  // Сброс таймера
     }
     """,
     Output('inactive-time', 'data'),
