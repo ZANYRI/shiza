@@ -1,107 +1,69 @@
 import requests
-from dash import Dash, html, dcc
-from dash.dependencies import Input, Output
-import dash
+from dash import Dash, html, dcc, Input, Output, State
 
 # URL сервера для авторизации
-SERVER_URL = "http://127.0.0.1:5000"
+SERVER_URL = "http://127.0.0.1:5000/auth"
 
-# Глобальная переменная для хранения состояния пользователя
-user_info = {"username": None, "role": None}
-
-# Создание приложения Dash
-app = Dash(__name__, suppress_callback_exceptions=True)
-
-# Макет приложения
-def serve_layout():
-    if user_info["username"]:
-        return html.Div([
-            html.H1(f"Добро пожаловать, {user_info['username']}!"),
-            html.P(f"Ваша роль: {user_info['role']}"),
-            html.Button('Выход', id='logout-button'),
-            html.Div(id='logout-message'),
-            dcc.Interval(id='session-timer', interval=1000, n_intervals=0),
-            dcc.Store(id='inactive-time', data=0)  # Таймер активности
-        ])
-    else:
-        return html.Div([
-            html.H1("Вход в систему"),
-            html.Label("Имя пользователя:"),
-            dcc.Input(id='username', type='text'),
-            html.Label("Пароль:"),
-            dcc.Input(id='password', type='password'),
-            html.Button('Войти', id='login-button'),
-            html.Div(id='login-message')
-        ])
-
-app.layout = serve_layout
-
-# Callback для входа
-@app.callback(
-    Output('login-message', 'children'),
-    [Input('login-button', 'n_clicks')],
-    [dash.dependencies.State('username', 'value'),
-     dash.dependencies.State('password', 'value')]
-)
-def login(n_clicks, username, password):
-    global user_info
-    if n_clicks:
-        response = requests.post(f"{SERVER_URL}/auth", json={"username": username, "password": password})
+# Функция для авторизации и получения роли
+def authorize_user(username, password):
+    try:
+        response = requests.post(SERVER_URL, json={"username": username, "password": password})
         if response.status_code == 200:
             data = response.json()
-            user_info["username"] = username
-            user_info["role"] = data["role"]
-            return "Вы успешно вошли. Обновите страницу для продолжения."
-        return "Ошибка входа: неверные данные."
-    return ""
+            if data.get("status") == "success":
+                return data.get("role")  # Возвращаем роль пользователя
+        return None
+    except Exception as e:
+        print(f"Ошибка подключения к серверу: {e}")
+        return None
 
-# Callback для выхода и завершения сессии
+# Создаем приложение Dash
+app = Dash(__name__, suppress_callback_exceptions=True)
+
+# Начальный макет приложения
+app.layout = html.Div([
+    dcc.Store(id="user-role", storage_type="session"),  # Хранение роли в сессии
+    html.Div(id="page-content")  # Динамическое отображение контента
+])
+
+# Логика отображения страницы в зависимости от статуса пользователя
 @app.callback(
-    Output('logout-message', 'children'),
-    [Input('logout-button', 'n_clicks'), Input('session-timer', 'n_intervals')],
-    [dash.dependencies.State('inactive-time', 'data')]
+    Output("page-content", "children"),
+    Input("user-role", "data")
 )
-def logout(n_clicks, n_intervals, inactive_time):
-    global user_info
-    if n_clicks or (inactive_time or 0) >= 600:  # Если кнопка "Выход" нажата или 10 минут прошло
-        requests.post(f"{SERVER_URL}/logout")
-        user_info = {"username": None, "role": None}  # Сброс пользователя
-        return "Сессия завершена. Обновите страницу для входа снова."
-    return ""
+def update_layout(user_role):
+    if user_role:
+        # Если пользователь авторизован
+        return html.Div([
+            html.H1("Добро пожаловать!"),
+            html.P(f"Ваша роль: {user_role}")
+        ])
+    else:
+        # Если пользователь не авторизован
+        return html.Div([
+            html.H1("Пожалуйста, войдите"),
+            html.Label("Имя пользователя:"),
+            dcc.Input(id="username", type="text"),
+            html.Label("Пароль:"),
+            dcc.Input(id="password", type="password"),
+            html.Button("Войти", id="login-button"),
+            html.Div(id="login-message", style={"color": "red"})
+        ])
 
-# Callback для увеличения времени неактивности
+# Callback для обработки входа
 @app.callback(
-    Output('inactive-time', 'data'),
-    [Input('session-timer', 'n_intervals')],
-    [dash.dependencies.State('inactive-time', 'data')]
+    [Output("user-role", "data"), Output("login-message", "children")],
+    Input("login-button", "n_clicks"),
+    [State("username", "value"), State("password", "value")],
+    prevent_initial_call=True
 )
-def update_inactive_time(n_intervals, inactive_time):
-    return (inactive_time or 0) + 1  # Если inactive_time == None, установить в 0
-
-# Клиентский callback для сброса таймера активности
-@app.clientside_callback(
-    """
-    function(n_intervals, data) {
-        if (data === null || data === undefined) {
-            data = 0;  // Инициализация, если данные не установлены
-        }
-        document.body.onmousemove = function() {
-            DashRenderer.emit('reset_timer');
-        };
-        document.body.onclick = function() {
-            DashRenderer.emit('reset_timer');
-        };
-        return 0;  // Сброс таймера
-    }
-    """,
-    Output('inactive-time', 'data'),
-    Input('session-timer', 'n_intervals'),
-    dash.dependencies.State('inactive-time', 'data')
-)
-def reset_timer_on_activity(n_intervals, data):
-    return 0  # Всегда возвращает сброс таймера
-
+def handle_login(n_clicks, username, password):
+    # Обработка нажатия кнопки входа
+    role = authorize_user(username, password)
+    if role:
+        return role, ""  # Сохраняем роль пользователя и очищаем сообщение об ошибке
+    return None, "Неверное имя пользователя или пароль."  # Показываем сообщение об ошибке
 
 # Запуск приложения
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run_server(debug=True)
