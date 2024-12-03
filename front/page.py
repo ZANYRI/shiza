@@ -1,14 +1,13 @@
 import requests
 from dash import Dash, html, dcc, Input, Output, State
 
-# URL сервера для авторизации и выхода
-SERVER_URL_AUTH = "http://127.0.0.1:5000/auth"
-SERVER_URL_LOGOUT = "http://127.0.0.1:5000/logout"
+# Базовый URL сервера
+SERVER_URL = "http://127.0.0.1:5000"
 
 # Функция для авторизации и получения роли
 def authorize_user(username, password):
     try:
-        response = requests.post(SERVER_URL_AUTH, json={"username": username, "password": password})
+        response = requests.post(f"{SERVER_URL}/auth", json={"username": username, "password": password})
         if response.status_code == 200:
             data = response.json()
             if data.get("status") == "success":
@@ -21,7 +20,7 @@ def authorize_user(username, password):
 # Функция для выхода
 def logout_user():
     try:
-        response = requests.post(SERVER_URL_LOGOUT)
+        response = requests.post(f"{SERVER_URL}/logout")
         if response.status_code == 200:
             data = response.json()
             if data.get("status") == "success":
