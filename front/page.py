@@ -65,31 +65,32 @@ def update_layout(user_role):
             html.Div(id="login-message", style={"color": "red"})
         ])
 
-# Callback для обработки входа
+# Объединённый callback для входа и выхода
 @app.callback(
-    [Output("user-role", "data"), Output("login-message", "children")],
-    Input("login-button", "n_clicks"),
+    [Output("user-role", "data"), Output("login-message", "children"), Output("logout-message", "children")],
+    [Input("login-button", "n_clicks"), Input("logout-button", "n_clicks")],
     [State("username", "value"), State("password", "value")],
     prevent_initial_call=True
 )
-def handle_login(n_clicks, username, password):
-    # Обработка нажатия кнопки входа
-    role = authorize_user(username, password)
-    if role:
-        return role, ""  # Сохраняем роль пользователя и очищаем сообщение об ошибке
-    return None, "Неверное имя пользователя или пароль."  # Показываем сообщение об ошибке
+def handle_auth(login_clicks, logout_clicks, username, password):
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        raise dash.exceptions.PreventUpdate
 
-# Callback для обработки выхода
-@app.callback(
-    [Output("user-role", "data"), Output("logout-message", "children")],
-    Input("logout-button", "n_clicks"),
-    prevent_initial_call=True
-)
-def handle_logout(n_clicks):
-    # Обработка нажатия кнопки выхода
-    if logout_user():
-        return None, "Вы успешно вышли из системы."  # Очищаем данные и показываем сообщение
-    return None, "Ошибка при выходе."  # Показываем сообщение об ошибке
+    # Определяем, какой Input вызвал callback
+    triggered_input = ctx.triggered[0]['prop_id'].split('.')[0]
+
+    if triggered_input == "login-button":
+        # Логика для входа
+        role = authorize_user(username, password)
+        if role:
+            return role, "", ""  # Устанавливаем роль, очищаем сообщения
+        return None, "Неверное имя пользователя или пароль.", ""
+    elif triggered_input == "logout-button":
+        # Логика для выхода
+        if logout_user():
+            return None, "", "Вы успешно вышли из системы."
+        return None, "", "Ошибка при выходе."
 
 # Запуск приложения
 if __name__ == "__main__":
