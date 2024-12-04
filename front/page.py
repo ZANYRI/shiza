@@ -1,5 +1,5 @@
 import requests
-from dash import Dash, html, dcc, Input, Output, State
+from dash import Dash, html, dcc, Input, Output, State, callback_context
 
 # Базовый URL сервера Flask
 SERVER_URL = "http://127.0.0.1:5000"
@@ -94,17 +94,19 @@ def update_page(user_role):
     prevent_initial_call=True
 )
 def handle_auth(login_clicks, logout_clicks, username, password):
-    ctx = dash.callback_context
+    ctx = callback_context
     if not ctx.triggered:
         raise dash.exceptions.PreventUpdate
 
     triggered_input = ctx.triggered[0]['prop_id'].split('.')[0]
 
     if triggered_input == "login-button":
-        role = authorize_user(username, password)
-        if role:
-            return role, ""  # Авторизация успешна
-        return None, "Неверное имя пользователя или пароль."  # Ошибка авторизации
+        if username and password:  # Убедитесь, что поля существуют
+            role = authorize_user(username, password)
+            if role:
+                return role, ""  # Авторизация успешна
+            return None, "Неверное имя пользователя или пароль."  # Ошибка авторизации
+        return None, "Введите имя пользователя и пароль."
     elif triggered_input == "logout-button":
         return None, ""  # Выход из системы
 
