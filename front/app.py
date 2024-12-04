@@ -1,9 +1,18 @@
 from dash import Dash, html, dcc, Input, Output, State
 import dash_auth
 import requests
+import time
 
 # URL сервера Flask для аутентификации
 SERVER_URL = "http://127.0.0.1:5000/auth"
+
+# Параметры сессии
+SESSION_TIMEOUT = 300  # Время жизни сессии (в секундах)
+session_start_time = None  # Время старта сессии
+
+# Глобальные переменные для пользователя
+current_user = None
+current_role = None
 
 # Функция проверки аутентификации
 def authenticate_user(username, password):
@@ -18,26 +27,24 @@ def authenticate_user(username, password):
         print(f"Ошибка подключения к серверу: {e}")
         return False, None, None
 
-# Функция аутентификации для dash_auth
+# Функция для dash_auth
 def auth_func(username, password):
+    global current_user, current_role, session_start_time
     is_authenticated, role, user = authenticate_user(username, password)
     if is_authenticated:
-        global current_user, current_role
         current_user = user
         current_role = role
+        session_start_time = time.time()  # Установка времени начала сессии
         return True
     return False
 
-# Инициализация Dash-приложения
+# Создание приложения
 app = Dash(__name__, suppress_callback_exceptions=True)
 auth = dash_auth.BasicAuth(app, auth_func=auth_func)
 
-# Глобальные переменные для хранения данных пользователя
-current_user = None
-current_role = None
-
 # Макет приложения
 app.layout = html.Div([
+    dcc.Interval(id="session-checker", interval=1000, n_intervals=0),  # Интервал для проверки сессии
     html.Div(id="greeting", style={
         "position": "absolute",
         "top": "20px",
@@ -50,7 +57,7 @@ app.layout = html.Div([
     html.Div(id="page-content")  # Основной контент
 ])
 
-# Главная страница
+# Функция главной страницы
 def main_page(user_name, user_role):
     return html.Div(
         style={
@@ -71,14 +78,20 @@ def main_page(user_name, user_role):
         )
     )
 
-# Логика обновления страницы
+# Callback для обновления контента
 @app.callback(
     [Output("page-content", "children"), Output("greeting", "children")],
-    Input("greeting", "id"),  # Используем фиктивный Input для обновления
+    Input("session-checker", "n_intervals")
 )
-def update_page(_):
-    global current_user, current_role
+def update_page(n_intervals):
+    global current_user, current_role, session_start_time
     if current_user and current_role:
+        # Проверяем, не истекла ли сессия
+        if time.time() - session_start_time > SESSION_TIMEOUT:
+            current_user = None
+            current_role = None
+            session_start_time = None
+            return html.Div("Ваша сессия истекла. Перезагрузите страницу для повторной авторизации."), ""
         greeting = f"Здравствуй, {current_user} ({current_role})"
         return main_page(current_user, current_role), greeting
     return html.Div("Ошибка авторизации"), ""
