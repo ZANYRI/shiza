@@ -29,7 +29,8 @@ app.layout = html.Div([
     dcc.Store(id="user-role", storage_type="session"),  # Хранение роли пользователя
     dcc.Store(id="session-expiry", storage_type="session"),  # Время окончания сессии
     dcc.Interval(id="session-check", interval=30 * 1000, n_intervals=0),  # Проверка сессии каждые 30 секунд
-    html.Div(id="page-content")  # Основное содержимое
+    html.Div(id="page-content"),  # Основное содержимое
+    html.Div(id="greeting", style={"position": "absolute", "top": "20px", "right": "20px", "font-size": "16px"})
 ])
 
 # Окно входа
@@ -109,14 +110,14 @@ def handle_login(n_clicks, username, password):
         role = authorize_user(username, password)
         if role:
             # Вычисляем время окончания сессии
-            expiry_time = (datetime.now() + timedelta(seconds=SESSION_DURATION)).isoformat()
+            expiry_time = (datetime.now() + timedelta(seconds=SESSION_DURATION)).timestamp()
             return role, expiry_time, ""  # Авторизация успешна
         return None, None, "Неверное имя пользователя или пароль."  # Ошибка авторизации
     return None, None, "Введите имя пользователя и пароль."
 
 # Логика проверки сессии
 @app.callback(
-    Output("user-role", "clear_data"),
+    [Output("user-role", "clear_data"), Output("greeting", "children")],
     Input("session-check", "n_intervals"),
     [State("session-expiry", "data"), State("user-role", "data")],
     prevent_initial_call=True
@@ -127,11 +128,13 @@ def check_session(n_intervals, expiry_time, user_role):
 
     if expiry_time:
         # Сравниваем текущее время с временем окончания сессии
-        current_time = datetime.now()
-        expiry_time = datetime.fromisoformat(expiry_time)
+        current_time = datetime.now().timestamp()
         if current_time >= expiry_time:
-            return True  # Очистка данных сессии, пользователь перенаправится на страницу входа
-    raise dash.exceptions.PreventUpdate
+            return True, ""  # Очистка данных сессии, пользователь перенаправится на страницу входа
+    else:
+        raise dash.exceptions.PreventUpdate
+
+    return dash.no_update, f"Привет, {user_role}!"  # Приветствие в правом верхнем углу
 
 # Запуск приложения
 if __name__ == "__main__":
