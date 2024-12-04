@@ -95,20 +95,25 @@ def update_page(user_role):
 )
 def handle_auth(login_clicks, logout_clicks, username, password):
     ctx = callback_context
-    if not ctx.triggered:
+    if not ctx.triggered:  # Если callback вызван автоматически, ничего не делаем
         raise dash.exceptions.PreventUpdate
 
     triggered_input = ctx.triggered[0]['prop_id'].split('.')[0]
 
     if triggered_input == "login-button":
-        if username and password:  # Убедитесь, что поля существуют
+        if username is None or password is None:  # Проверяем существование полей
+            return None, ""  # Элементы еще не существуют
+        if username and password:
             role = authorize_user(username, password)
             if role:
                 return role, ""  # Авторизация успешна
             return None, "Неверное имя пользователя или пароль."  # Ошибка авторизации
         return None, "Введите имя пользователя и пароль."
     elif triggered_input == "logout-button":
-        return None, ""  # Выход из системы
+        if logout_clicks:
+            return None, ""  # Выход из системы
+
+    raise dash.exceptions.PreventUpdate
 
 # Запуск приложения
 if __name__ == "__main__":
