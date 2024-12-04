@@ -118,10 +118,13 @@ def handle_login(n_clicks, username, password):
 @app.callback(
     Output("user-role", "clear_data"),
     Input("session-check", "n_intervals"),
-    State("session-expiry", "data"),
+    [State("session-expiry", "data"), State("user-role", "data")],
     prevent_initial_call=True
 )
-def check_session(n_intervals, expiry_time):
+def check_session(n_intervals, expiry_time, user_role):
+    if not user_role:  # Если пользователь не авторизован, ничего не делаем
+        raise dash.exceptions.PreventUpdate
+
     if expiry_time:
         # Сравниваем текущее время с временем окончания сессии
         current_time = datetime.now()
