@@ -1,10 +1,10 @@
 import requests
 from dash import Dash, html, dcc, Input, Output, State
 
-# Базовый URL сервера
+# Базовый URL сервера Flask
 SERVER_URL = "http://127.0.0.1:5000"
 
-# Функция для авторизации и получения роли
+# Функция для авторизации
 def authorize_user(username, password):
     try:
         response = requests.post(f"{SERVER_URL}/auth", json={"username": username, "password": password})
@@ -17,80 +17,96 @@ def authorize_user(username, password):
         print(f"Ошибка подключения к серверу: {e}")
         return None
 
-# Функция для выхода
-def logout_user():
-    try:
-        response = requests.post(f"{SERVER_URL}/logout")
-        if response.status_code == 200:
-            data = response.json()
-            if data.get("status") == "success":
-                return True
-        return False
-    except Exception as e:
-        print(f"Ошибка подключения к серверу: {e}")
-        return False
-
-# Создаем приложение Dash
+# Создание Dash-приложения
 app = Dash(__name__, suppress_callback_exceptions=True)
 
-# Начальный макет приложения
+# Макет приложения
 app.layout = html.Div([
-    dcc.Store(id="user-role", storage_type="session"),  # Хранение роли в сессии
-    html.Div(id="page-content")  # Динамическое отображение контента
+    dcc.Store(id="user-role", storage_type="session"),  # Хранение роли пользователя
+    html.Div(id="page-content")  # Основное содержимое
 ])
 
-# Логика отображения страницы в зависимости от статуса пользователя
+# Окно входа
+def login_page():
+    return html.Div(
+        style={
+            "display": "flex",
+            "justify-content": "center",
+            "align-items": "center",
+            "height": "100vh",
+            "background-color": "#f7f7f7"
+        },
+        children=html.Div(
+            style={
+                "width": "300px",
+                "padding": "20px",
+                "box-shadow": "0 4px 6px rgba(0, 0, 0, 0.1)",
+                "background-color": "white",
+                "border-radius": "8px",
+                "text-align": "center"
+            },
+            children=[
+                html.H2("Вход", style={"margin-bottom": "20px"}),
+                dcc.Input(id="username", type="text", placeholder="Имя пользователя", style={"width": "100%", "margin-bottom": "10px"}),
+                dcc.Input(id="password", type="password", placeholder="Пароль", style={"width": "100%", "margin-bottom": "20px"}),
+                html.Button("Войти", id="login-button", style={"width": "100%", "background-color": "#007bff", "color": "white", "border": "none", "padding": "10px"}),
+                html.Div(id="login-message", style={"color": "red", "margin-top": "10px"})
+            ]
+        )
+    )
+
+# Главная страница после входа
+def main_page(user_role):
+    return html.Div(
+        style={
+            "display": "flex",
+            "justify-content": "center",
+            "align-items": "center",
+            "height": "100vh",
+            "background-color": "#eaf4fc"
+        },
+        children=html.Div(
+            style={
+                "text-align": "center"
+            },
+            children=[
+                html.H1(f"Добро пожаловать, {user_role}!", style={"margin-bottom": "20px"}),
+                html.Button("Выйти", id="logout-button", style={"background-color": "#dc3545", "color": "white", "padding": "10px", "border": "none"})
+            ]
+        )
+    )
+
+# Логика смены страниц
 @app.callback(
     Output("page-content", "children"),
     Input("user-role", "data")
 )
-def update_layout(user_role):
+def update_page(user_role):
     if user_role:
-        # Если пользователь авторизован
-        return html.Div([
-            html.H1("Добро пожаловать!"),
-            html.P(f"Ваша роль: {user_role}"),
-            html.Button("Выйти", id="logout-button"),
-            html.Div(id="logout-message", style={"color": "green"})
-        ])
-    else:
-        # Если пользователь не авторизован
-        return html.Div([
-            html.H1("Пожалуйста, войдите"),
-            html.Label("Имя пользователя:"),
-            dcc.Input(id="username", type="text"),
-            html.Label("Пароль:"),
-            dcc.Input(id="password", type="password"),
-            html.Button("Войти", id="login-button"),
-            html.Div(id="login-message", style={"color": "red"})
-        ])
+        return main_page(user_role)
+    return login_page()
 
-# Объединённый callback для входа и выхода
+# Логика входа
 @app.callback(
-    [Output("user-role", "data"), Output("login-message", "children"), Output("logout-message", "children")],
-    [Input("login-button", "n_clicks"), Input("logout-button", "n_clicks")],
+    [Output("user-role", "data"), Output("login-message", "children")],
+    Input("login-button", "n_clicks"),
     [State("username", "value"), State("password", "value")],
     prevent_initial_call=True
 )
-def handle_auth(login_clicks, logout_clicks, username, password):
-    ctx = dash.callback_context
-    if not ctx.triggered:
-        raise dash.exceptions.PreventUpdate
+def handle_login(n_clicks, username, password):
+    role = authorize_user(username, password)
+    if role:
+        return role, ""
+    return None, "Неверное имя пользователя или пароль."
 
-    # Определяем, какой Input вызвал callback
-    triggered_input = ctx.triggered[0]['prop_id'].split('.')[0]
-
-    if triggered_input == "login-button":
-        # Логика для входа
-        role = authorize_user(username, password)
-        if role:
-            return role, "", ""  # Устанавливаем роль, очищаем сообщения
-        return None, "Неверное имя пользователя или пароль.", ""
-    elif triggered_input == "logout-button":
-        # Логика для выхода
-        if logout_user():
-            return None, "", "Вы успешно вышли из системы."
-        return None, "", "Ошибка при выходе."
+# Логика выхода
+@app.callback(
+    Output("user-role", "data"),
+    Input("logout-button", "n_clicks"),
+    prevent_initial_call=True
+)
+def handle_logout(n_clicks):
+    return None
 
 # Запуск приложения
 if __name__ == "__main__":
