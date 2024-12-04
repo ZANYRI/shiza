@@ -1,8 +1,12 @@
 import requests
 from dash import Dash, html, dcc, Input, Output, State, callback_context
+from datetime import datetime, timedelta
 
 # Базовый URL сервера Flask
 SERVER_URL = "http://127.0.0.1:5000"
+
+# Время сессии в секундах
+SESSION_DURATION = 600  # 10 минут
 
 # Функция для авторизации
 def authorize_user(username, password):
@@ -23,6 +27,8 @@ app = Dash(__name__, suppress_callback_exceptions=True)
 # Макет приложения
 app.layout = html.Div([
     dcc.Store(id="user-role", storage_type="session"),  # Хранение роли пользователя
+    dcc.Store(id="session-expiry", storage_type="session"),  # Время окончания сессии
+    dcc.Interval(id="session-check", interval=30 * 1000, n_intervals=0),  # Проверка сессии каждые 30 секунд
     html.Div(id="page-content")  # Основное содержимое
 ])
 
@@ -87,24 +93,42 @@ def update_page(user_role):
 
 # Логика входа
 @app.callback(
-    [Output("user-role", "data"), Output("login-message", "children")],
+    [Output("user-role", "data"), Output("session-expiry", "data"), Output("login-message", "children")],
     Input("login-button", "n_clicks"),
     [State("username", "value"), State("password", "value")],
     prevent_initial_call=True
 )
-def handle_auth(login_clicks, username, password):
+def handle_login(n_clicks, username, password):
     ctx = callback_context
     if not ctx.triggered:  # Если callback вызван автоматически, ничего не делаем
         raise dash.exceptions.PreventUpdate
 
     if username is None or password is None:  # Проверяем существование полей
-        return None, ""  # Элементы еще не существуют
+        return None, None, ""  # Элементы еще не существуют
     if username and password:
         role = authorize_user(username, password)
         if role:
-            return role, ""  # Авторизация успешна
-        return None, "Неверное имя пользователя или пароль."  # Ошибка авторизации
-    return None, "Введите имя пользователя и пароль."
+            # Вычисляем время окончания сессии
+            expiry_time = (datetime.now() + timedelta(seconds=SESSION_DURATION)).isoformat()
+            return role, expiry_time, ""  # Авторизация успешна
+        return None, None, "Неверное имя пользователя или пароль."  # Ошибка авторизации
+    return None, None, "Введите имя пользователя и пароль."
+
+# Логика проверки сессии
+@app.callback(
+    Output("user-role", "clear_data"),
+    Input("session-check", "n_intervals"),
+    State("session-expiry", "data"),
+    prevent_initial_call=True
+)
+def check_session(n_intervals, expiry_time):
+    if expiry_time:
+        # Сравниваем текущее время с временем окончания сессии
+        current_time = datetime.now()
+        expiry_time = datetime.fromisoformat(expiry_time)
+        if current_time >= expiry_time:
+            return True  # Очистка данных сессии, пользователь перенаправится на страницу входа
+    raise dash.exceptions.PreventUpdate
 
 # Запуск приложения
 if __name__ == "__main__":
