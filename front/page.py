@@ -76,7 +76,7 @@ def main_page(user_role):
         )
     )
 
-# Логика смены страниц
+# Логика обновления страницы
 @app.callback(
     Output("page-content", "children"),
     Input("user-role", "data")
@@ -86,27 +86,27 @@ def update_page(user_role):
         return main_page(user_role)
     return login_page()
 
-# Логика входа
+# Логика входа и выхода
 @app.callback(
     [Output("user-role", "data"), Output("login-message", "children")],
-    Input("login-button", "n_clicks"),
+    [Input("login-button", "n_clicks"), Input("logout-button", "n_clicks")],
     [State("username", "value"), State("password", "value")],
     prevent_initial_call=True
 )
-def handle_login(n_clicks, username, password):
-    role = authorize_user(username, password)
-    if role:
-        return role, ""
-    return None, "Неверное имя пользователя или пароль."
+def handle_auth(login_clicks, logout_clicks, username, password):
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        raise dash.exceptions.PreventUpdate
 
-# Логика выхода
-@app.callback(
-    Output("user-role", "data"),
-    Input("logout-button", "n_clicks"),
-    prevent_initial_call=True
-)
-def handle_logout(n_clicks):
-    return None
+    triggered_input = ctx.triggered[0]['prop_id'].split('.')[0]
+
+    if triggered_input == "login-button":
+        role = authorize_user(username, password)
+        if role:
+            return role, ""  # Авторизация успешна
+        return None, "Неверное имя пользователя или пароль."  # Ошибка авторизации
+    elif triggered_input == "logout-button":
+        return None, ""  # Выход из системы
 
 # Запуск приложения
 if __name__ == "__main__":
