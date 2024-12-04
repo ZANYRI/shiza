@@ -27,10 +27,19 @@ app = Dash(__name__, suppress_callback_exceptions=True)
 # Макет приложения
 app.layout = html.Div([
     dcc.Store(id="user-role", storage_type="session"),  # Хранение роли пользователя
+    dcc.Store(id="user-name", storage_type="session"),  # Хранение имени пользователя
     dcc.Store(id="session-expiry", storage_type="session"),  # Время окончания сессии
     dcc.Interval(id="session-check", interval=30 * 1000, n_intervals=0),  # Проверка сессии каждые 30 секунд
     html.Div(id="page-content"),  # Основное содержимое
-    html.Div(id="greeting", style={"position": "absolute", "top": "20px", "right": "20px", "font-size": "16px"})
+    html.Div(id="greeting", style={
+        "position": "absolute",
+        "top": "20px",
+        "right": "20px",
+        "font-size": "16px",
+        "background-color": "#f0f0f0",
+        "padding": "10px",
+        "border-radius": "8px"
+    })
 ])
 
 # Окно входа
@@ -63,7 +72,7 @@ def login_page():
     )
 
 # Главная страница после входа
-def main_page(user_role):
+def main_page(user_name, user_role):
     return html.Div(
         style={
             "display": "flex",
@@ -77,7 +86,8 @@ def main_page(user_role):
                 "text-align": "center"
             },
             children=[
-                html.H1(f"Добро пожаловать, {user_role}!", style={"margin-bottom": "20px"})
+                html.H1(f"Добро пожаловать, {user_role}!", style={"margin-bottom": "20px"}),
+                html.P(f"Ваше имя: {user_name}")
             ]
         )
     )
@@ -85,16 +95,16 @@ def main_page(user_role):
 # Логика обновления страницы
 @app.callback(
     Output("page-content", "children"),
-    Input("user-role", "data")
+    [Input("user-role", "data"), Input("user-name", "data")]
 )
-def update_page(user_role):
-    if user_role:
-        return main_page(user_role)
+def update_page(user_role, user_name):
+    if user_role and user_name:
+        return main_page(user_name, user_role)
     return login_page()
 
 # Логика входа
 @app.callback(
-    [Output("user-role", "data"), Output("session-expiry", "data"), Output("login-message", "children")],
+    [Output("user-role", "data"), Output("user-name", "data"), Output("session-expiry", "data"), Output("login-message", "children")],
     Input("login-button", "n_clicks"),
     [State("username", "value"), State("password", "value")],
     prevent_initial_call=True
@@ -104,37 +114,35 @@ def handle_login(n_clicks, username, password):
     if not ctx.triggered:  # Если callback вызван автоматически, ничего не делаем
         raise dash.exceptions.PreventUpdate
 
-    if username is None or password is None:  # Проверяем существование полей
-        return None, None, ""  # Элементы еще не существуют
     if username and password:
         role = authorize_user(username, password)
         if role:
             # Вычисляем время окончания сессии
             expiry_time = (datetime.now() + timedelta(seconds=SESSION_DURATION)).timestamp()
-            return role, expiry_time, ""  # Авторизация успешна
-        return None, None, "Неверное имя пользователя или пароль."  # Ошибка авторизации
-    return None, None, "Введите имя пользователя и пароль."
+            return role, username, expiry_time, ""  # Авторизация успешна
+        return None, None, None, "Неверное имя пользователя или пароль."  # Ошибка авторизации
+    return None, None, None, "Введите имя пользователя и пароль."
 
 # Логика проверки сессии
 @app.callback(
-    [Output("user-role", "clear_data"), Output("greeting", "children")],
+    [Output("user-role", "clear_data"), Output("user-name", "clear_data"), Output("greeting", "children")],
     Input("session-check", "n_intervals"),
-    [State("session-expiry", "data"), State("user-role", "data")],
+    [State("session-expiry", "data"), State("user-role", "data"), State("user-name", "data")],
     prevent_initial_call=True
 )
-def check_session(n_intervals, expiry_time, user_role):
-    if not user_role:  # Если пользователь не авторизован, ничего не делаем
+def check_session(n_intervals, expiry_time, user_role, user_name):
+    if not user_role or not user_name:  # Если пользователь не авторизован, ничего не делаем
         raise dash.exceptions.PreventUpdate
 
     if expiry_time:
         # Сравниваем текущее время с временем окончания сессии
         current_time = datetime.now().timestamp()
         if current_time >= expiry_time:
-            return True, ""  # Очистка данных сессии, пользователь перенаправится на страницу входа
+            return True, True, ""  # Очистка данных сессии, пользователь перенаправится на страницу входа
     else:
         raise dash.exceptions.PreventUpdate
 
-    return dash.no_update, f"Привет, {user_role}!"  # Приветствие в правом верхнем углу
+    return dash.no_update, dash.no_update, f"Здравствуй, {user_name} ({user_role})"  # Приветствие в правом верхнем углу
 
 # Запуск приложения
 if __name__ == "__main__":
