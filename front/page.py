@@ -70,8 +70,7 @@ def main_page(user_role):
                 "text-align": "center"
             },
             children=[
-                html.H1(f"Добро пожаловать, {user_role}!", style={"margin-bottom": "20px"}),
-                html.Button("Выйти", id="logout-button", style={"background-color": "#dc3545", "color": "white", "padding": "10px", "border": "none"})
+                html.H1(f"Добро пожаловать, {user_role}!", style={"margin-bottom": "20px"})
             ]
         )
     )
@@ -86,34 +85,26 @@ def update_page(user_role):
         return main_page(user_role)
     return login_page()
 
-# Логика входа и выхода
+# Логика входа
 @app.callback(
     [Output("user-role", "data"), Output("login-message", "children")],
-    [Input("login-button", "n_clicks"), Input("logout-button", "n_clicks")],
+    Input("login-button", "n_clicks"),
     [State("username", "value"), State("password", "value")],
     prevent_initial_call=True
 )
-def handle_auth(login_clicks, logout_clicks, username, password):
+def handle_auth(login_clicks, username, password):
     ctx = callback_context
     if not ctx.triggered:  # Если callback вызван автоматически, ничего не делаем
         raise dash.exceptions.PreventUpdate
 
-    triggered_input = ctx.triggered[0]['prop_id'].split('.')[0]
-
-    if triggered_input == "login-button":
-        if username is None or password is None:  # Проверяем существование полей
-            return None, ""  # Элементы еще не существуют
-        if username and password:
-            role = authorize_user(username, password)
-            if role:
-                return role, ""  # Авторизация успешна
-            return None, "Неверное имя пользователя или пароль."  # Ошибка авторизации
-        return None, "Введите имя пользователя и пароль."
-    elif triggered_input == "logout-button":
-        if logout_clicks:
-            return None, ""  # Выход из системы
-
-    raise dash.exceptions.PreventUpdate
+    if username is None or password is None:  # Проверяем существование полей
+        return None, ""  # Элементы еще не существуют
+    if username and password:
+        role = authorize_user(username, password)
+        if role:
+            return role, ""  # Авторизация успешна
+        return None, "Неверное имя пользователя или пароль."  # Ошибка авторизации
+    return None, "Введите имя пользователя и пароль."
 
 # Запуск приложения
 if __name__ == "__main__":
