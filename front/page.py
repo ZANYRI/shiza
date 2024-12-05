@@ -76,7 +76,7 @@ def login_page():
     )
 
 # Главная страница после входа
-def main_page(user_name, user_role):
+def main_page():
     return html.Div(
         style={
             "display": "flex",
@@ -85,15 +85,9 @@ def main_page(user_name, user_role):
             "height": "100vh",
             "background-color": "#eaf4fc"
         },
-        children=html.Div(
-            style={
-                "text-align": "center"
-            },
-            children=[
-                html.H1(f"Добро пожаловать, {user_role}!", style={"margin-bottom": "20px"}),
-                html.P(f"Ваше имя: {user_name}")
-            ]
-        )
+        children=[
+            html.H1("Добро пожаловать на главную страницу!", style={"margin-bottom": "20px"}),
+        ]
     )
 
 # Логика обновления страницы
@@ -103,7 +97,7 @@ def main_page(user_name, user_role):
 )
 def update_page(user_role, user_name):
     if user_role and user_name:
-        return main_page(user_name, user_role)
+        return main_page()
     return login_page()
 
 # Логика входа
