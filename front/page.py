@@ -47,7 +47,7 @@ app.layout = html.Div([
 ])
 
 # Окно входа
-def login_page():
+def login_page(error_message=""):
     return html.Div(
         style={
             "display": "flex",
@@ -70,7 +70,7 @@ def login_page():
                 dcc.Input(id="username", type="text", placeholder="Имя пользователя", style={"width": "100%", "margin-bottom": "10px"}),
                 dcc.Input(id="password", type="password", placeholder="Пароль", style={"width": "100%", "margin-bottom": "20px"}),
                 html.Button("Войти", id="login-button", style={"width": "100%", "background-color": "#007bff", "color": "white", "border": "none", "padding": "10px"}),
-                html.Div(id="login-message", style={"color": "red", "margin-top": "10px"})
+                html.Div(id="login-message", style={"color": "red", "margin-top": "10px", "display": "block" if error_message else "none"}, children=error_message)
             ]
         )
     )
@@ -98,7 +98,7 @@ def main_page():
 def update_page(user_role, user_name):
     if user_role and user_name:
         return main_page()
-    return login_page()
+    return login_page()  # Показывать страницу входа, если нет роли и имени
 
 # Логика входа
 @app.callback(
