@@ -1,42 +1,52 @@
-from dash import Dash, html, dcc, Input, Output
+from dash import Dash, html, dcc
 import dash_auth
 from flask import Flask, request, jsonify, session
+import requests
 from datetime import datetime
-import role1_page  # Импорт страницы для role1
-import role2_page  # Импорт страницы для role2
 
 # Создаем Flask-сервер
 server = Flask(__name__)
 server.secret_key = 'supersecretkey'  # Для сессий
 
-# Массив для хранения данных пользователей (временное хранение)
+# Массив для временного хранения пользователей
 users_data = []
 
-# Функция для проверки, существует ли уже пользователь с таким логином и паролем
-def user_exists(username, password):
+# URL сервера для аутентификации
+SERVER_URL = "http://127.0.0.1:5000/auth"
+
+# Функция для проверки, существует ли пользователь в локальном массиве
+def user_exists(username):
     for user in users_data:
-        if user['username'] == username and user['password'] == password:
-            return True
-    return False
+        if user['username'] == username:
+            return user
+    return None
 
-# Функция для добавления пользователя
-def register_user(username, password, role):
-    if not user_exists(username, password):
-        users_data.append({
-            "username": username,
-            "password": password,
-            "role": role,
-            "login_time": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        })
-        return True
-    return False
-
-# Функция для проверки аутентификации
+# Функция для аутентификации пользователя
 def authenticate_user(username, password):
-    for user in users_data:
-        if user['username'] == username and user['password'] == password:
-            return True, user['role']
-    return False, None
+    # Сначала проверяем в локальном массиве
+    user = user_exists(username)
+    if user:
+        # Если пользователь найден в локальном массиве, возвращаем его роль
+        return True, user['role']
+    
+    # Если пользователя нет, делаем запрос к серверу для аутентификации
+    try:
+        response = requests.post(SERVER_URL, json={"username": username, "password": password})
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("status") == "success":
+                # Если аутентификация успешна, сохраняем данные пользователя в массив
+                users_data.append({
+                    "username": username,
+                    "password": password,
+                    "role": data.get("role"),
+                    "login_time": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                })
+                return True, data.get("role")
+        return False, None
+    except Exception as e:
+        print(f"Ошибка подключения к серверу: {e}")
+        return False, None
 
 # Функция для auth_func в dash_auth
 def auth_func(username, password):
@@ -66,34 +76,24 @@ app.layout = html.Div([
 )
 def display_page(pathname):
     role = session.get('role')
-    
     if role == 'role1':
-        return role1_page.get_role1_page()  # Загружаем страницу для role1
+        return html.Div([
+            html.H1("Страница для role1"),
+            html.P(f"Добро пожаловать, пользователь с ролью: {role}"),
+            dcc.Link("Перейти на страницу role2", href="/role2"),
+        ])
     elif role == 'role2':
-        return role2_page.get_role2_page()  # Загружаем страницу для role2
+        return html.Div([
+            html.H1("Страница для role2"),
+            html.P(f"Добро пожаловать, пользователь с ролью: {role}"),
+            dcc.Link("Перейти на страницу role1", href="/role1"),
+        ])
     else:
         return html.Div([
             html.H1("Авторизация"),
             dcc.Link("Перейти на страницу role1", href="/role1"),
             dcc.Link("Перейти на страницу role2", href="/role2")
         ])
-
-# Функция для обработки регистрации пользователя через POST-запрос
-@app.route('/register', methods=['POST'])
-def register():
-    data = request.get_json()
-    if 'username' not in data or 'password' not in data or 'role' not in data:
-        return jsonify({"error": "Missing required fields"}), 400
-
-    username = data['username']
-    password = data['password']
-    role = data['role']
-
-    # Регистрируем пользователя
-    if register_user(username, password, role):
-        return jsonify({"message": f"User {username} registered successfully!"}), 200
-    else:
-        return jsonify({"error": "User with this username and password already exists."}), 400
 
 # Запуск приложения
 if __name__ == '__main__':
