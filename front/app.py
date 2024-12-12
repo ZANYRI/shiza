@@ -1,4 +1,4 @@
-from dash import Dash, html, dcc, Input, Output
+from dash import Dash, html, dcc, Input, Output, State, callback_context
 import dash_auth
 from flask import Flask, request, jsonify, session
 import requests
@@ -73,28 +73,50 @@ app.layout = html.Div([
     html.Div(id='page-content')
 ])
 
-# Страница для role1 и role2
+# Callback для отображения страниц на основе роли
 @app.callback(
     Output('page-content', 'children'),
     Input('url', 'pathname')
 )
 def display_page(pathname):
+    username = session.get('user')
     role = session.get('role')
     if role == 'role1':
         return html.Div([
             html.H1("Страница для role1"),
-            html.P(f"Добро пожаловать, пользователь с ролью: {role}")
+            html.P(f"Добро пожаловать, {username} с ролью: {role}"),
+            html.Button("Деактивировать аккаунт", id='deactivate-btn', n_clicks=0),
+            html.Div(id='status-output')
         ])
     elif role == 'role2':
         return html.Div([
             html.H1("Страница для role2"),
-            html.P(f"Добро пожаловать, пользователь с ролью: {role}")
+            html.P(f"Добро пожаловать, {username} с ролью: {role}"),
+            html.Button("Деактивировать аккаунт", id='deactivate-btn', n_clicks=0),
+            html.Div(id='status-output')
         ])
     else:
         return html.Div([
             html.H1("Авторизация"),
             html.P("Пожалуйста, авторизуйтесь.")
         ])
+
+# Callback для деактивации пользователя
+@app.callback(
+    Output('status-output', 'children'),
+    Input('deactivate-btn', 'n_clicks'),
+    State('url', 'pathname')
+)
+def deactivate_user(n_clicks, pathname):
+    if n_clicks > 0:
+        username = session.get('user')
+        if username:
+            for user in users_data:
+                if user['username'] == username:
+                    user['status'] = False
+                    return f"Аккаунт пользователя '{username}' деактивирован."
+        return "Не удалось деактивировать аккаунт."
+    return ""
 
 # Запуск приложения
 if __name__ == '__main__':
