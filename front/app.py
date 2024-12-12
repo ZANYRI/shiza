@@ -8,12 +8,6 @@ from datetime import timedelta
 # URL сервера Flask для аутентификации
 SERVER_URL = "http://127.0.0.1:5000/auth"
 
-# Создание Flask-сервера и настройка сессий
-server = Flask(__name__)
-server.secret_key = 'your_secret_key'  # Секретный ключ для шифрования сессий
-server.permanent_session_lifetime = timedelta(minutes=5)  # Время жизни сессии
-
-# Создание приложения Dash с использованием Flask-сервера
 app = Dash(__name__, server=server, suppress_callback_exceptions=True)
 
 # Глобальные переменные для пользователя
@@ -37,59 +31,17 @@ def authenticate_user(username, password):
 def auth_func(username, password):
     global current_user, current_role
 
-    # Проверка, не истекло ли время сессии
-    last_activity_time = session.get("last_activity_time")
-    if last_activity_time and (time.time() - last_activity_time > 60):
-        current_user = None
-        current_role = None
-        session.clear()  # Очищаем сессию
-        return False
-
     # Аутентификация пользователя
     is_authenticated, role, user = authenticate_user(username, password)
     if is_authenticated:
         current_user = user
         current_role = role
-        session["last_activity_time"] = time.time()  # Сохраняем время последней активности в сессии
-        session["current_user"] = user
-        session["current_role"] = role
         return True
 
     return False
 
 # Настройка BasicAuth для Dash
 auth = dash_auth.BasicAuth(app, auth_func=auth_func)
-
-# Макет приложения
-app.layout = html.Div([
-    dcc.Interval(id="session-checker", interval=1000, n_intervals=0),
-    html.Div(id="session-status", style={"font-size": "20px", "margin": "20px"}),
-    html.Button("Сделать что-то", id="action-button")
-])
-
-# Callback для обновления времени активности при взаимодействии пользователя
-@app.callback(
-    Output("session-status", "children"),
-    Input("action-button", "n_clicks"),
-    prevent_initial_call=True
-)
-def update_activity(n_clicks):
-    session["last_activity_time"] = time.time()  # Обновляем время последней активности в сессии
-    return f"Активность обновлена в {time.strftime('%H:%M:%S')}"
-
-# Callback для проверки активности пользователя и завершения сессии
-@app.callback(
-    Output("session-status", "children"),
-    Input("session-checker", "n_intervals")
-)
-def check_session(n_intervals):
-    if "current_user" in session and "current_role" in session:
-        last_activity_time = session.get("last_activity_time")
-        if last_activity_time and (time.time() - last_activity_time > 60):
-            session.clear()  # Очищаем сессию при истечении времени
-            return "Сессия завершена из-за бездействия. Перезагрузите страницу для повторной авторизации."
-        return f"Сессия активна. Пользователь: {session['current_user']} ({session['current_role']})"
-    return "Вы не авторизованы. Перезагрузите страницу для авторизации."
 
 # Запуск приложения
 if __name__ == "__main__":
