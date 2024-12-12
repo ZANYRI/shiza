@@ -46,8 +46,7 @@ auth = dash_auth.BasicAuth(app, auth_func=auth_func)
 app.layout = html.Div([
     dcc.Interval(id="session-checker", interval=1000, n_intervals=0),
     html.Div(id="session-status", style={"font-size": "20px", "margin": "20px"}),
-    html.Button("Сделать что-то", id="action-button"),
-    dcc.Location(id='url', refresh=True)  # Для принудительного обновления страницы
+    html.Button("Сделать что-то", id="action-button")
 ])
 
 # Callback для обновления времени активности при взаимодействии пользователя
@@ -63,7 +62,7 @@ def update_activity(n_clicks):
 
 # Callback для проверки активности пользователя и завершения сессии
 @app.callback(
-    Output("url", "pathname"),
+    Output("session-status", "children"),
     Input("session-checker", "n_intervals")
 )
 def check_session(n_intervals):
@@ -71,12 +70,13 @@ def check_session(n_intervals):
 
     if current_user and current_role:
         if time.time() - last_activity_time > SESSION_TIMEOUT:
-            # Сброс авторизации
+            # Сброс авторизации через редирект
             current_user = None
             current_role = None
             last_activity_time = None
-            return '/'  # Перезагрузка страницы для вызова BasicAuth заново
-    return ctx.triggered_id
+            return dcc.Location(pathname="/logout", id="logout")
+        return f"Сессия активна. Пользователь: {current_user} ({current_role})"
+    return "Вы не авторизованы. Перезагрузите страницу для авторизации."
 
 # Запуск приложения
 if __name__ == "__main__":
