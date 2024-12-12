@@ -1,9 +1,9 @@
-from dash import Dash, html
+from dash import Dash, html, Output, Input
 from flask import Flask, session
 import dash_auth
 import requests
-from admin_page import get_layout as admin_layout
-from user_page import get_layout as user_layout
+from role1_page import get_layout as role1_layout
+from role2_page import get_layout as role2_layout
 
 # URL сервера Flask для аутентификации
 SERVER_URL = "http://127.0.0.1:5000/auth"
@@ -53,15 +53,15 @@ app.layout = html.Div(id='page-content')
 
 # Callback для динамического отображения страниц
 @app.callback(
-    output=dash.Output('page-content', 'children'),
-    inputs=[]
+    Output('page-content', 'children'),
+    Input('page-content', 'id')  # Заглушка для вызова callback
 )
-def display_page():
+def display_page(_):
     role = session.get('role')
-    if role == 'admin':
-        return admin_layout(role)
-    elif role == 'user':
-        return user_layout(role)
+    if role == 'role1':
+        return role1_layout(role)
+    elif role == 'role2':
+        return role2_layout(role)
     else:
         return html.Div("У вас нет доступа к этому приложению.")
 
