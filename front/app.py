@@ -1,6 +1,6 @@
-from dash import Dash, html, dcc, Input, Output, State, callback_context
+from dash import Dash, html, dcc, Input, Output, State
 import dash_auth
-from flask import Flask, request, jsonify, session
+from flask import Flask, session, request
 import requests
 from datetime import datetime
 
@@ -52,6 +52,16 @@ def authenticate_user(username, password):
         print(f"Ошибка подключения к серверу: {e}")
         return False, None
 
+# Функция для изменения статуса пользователя на False
+def set_status_false(username):
+    for user in users_data:
+        if user['username'] == username:
+            user['status'] = False
+            print(f"Статус пользователя {username} изменен на False.")
+            return True
+    print(f"Пользователь {username} не найден.")
+    return False
+
 # Функция для auth_func в dash_auth
 def auth_func(username, password):
     is_authenticated, role = authenticate_user(username, password)
@@ -73,7 +83,7 @@ app.layout = html.Div([
     html.Div(id='page-content')
 ])
 
-# Callback для отображения страниц на основе роли
+# Страницы для ролей с кнопкой для изменения статуса на False
 @app.callback(
     Output('page-content', 'children'),
     Input('url', 'pathname')
@@ -81,18 +91,19 @@ app.layout = html.Div([
 def display_page(pathname):
     username = session.get('user')
     role = session.get('role')
+
     if role == 'role1':
         return html.Div([
             html.H1("Страница для role1"),
-            html.P(f"Добро пожаловать, {username} с ролью: {role}"),
-            html.Button("Деактивировать аккаунт", id='deactivate-btn', n_clicks=0),
+            html.P(f"Добро пожаловать, {username}! Ваша роль: {role}"),
+            html.Button("Отключить статус", id='disable-status-btn', n_clicks=0),
             html.Div(id='status-output')
         ])
     elif role == 'role2':
         return html.Div([
             html.H1("Страница для role2"),
-            html.P(f"Добро пожаловать, {username} с ролью: {role}"),
-            html.Button("Деактивировать аккаунт", id='deactivate-btn', n_clicks=0),
+            html.P(f"Добро пожаловать, {username}! Ваша роль: {role}"),
+            html.Button("Отключить статус", id='disable-status-btn', n_clicks=0),
             html.Div(id='status-output')
         ])
     else:
@@ -101,21 +112,19 @@ def display_page(pathname):
             html.P("Пожалуйста, авторизуйтесь.")
         ])
 
-# Callback для деактивации пользователя
+# Callback для изменения статуса пользователя на False
 @app.callback(
     Output('status-output', 'children'),
-    Input('deactivate-btn', 'n_clicks'),
+    Input('disable-status-btn', 'n_clicks'),
     State('url', 'pathname')
 )
-def deactivate_user(n_clicks, pathname):
-    if n_clicks > 0:
-        username = session.get('user')
-        if username:
-            for user in users_data:
-                if user['username'] == username:
-                    user['status'] = False
-                    return f"Аккаунт пользователя '{username}' деактивирован."
-        return "Не удалось деактивировать аккаунт."
+def disable_status(n_clicks, pathname):
+    username = session.get('user')
+    if n_clicks > 0 and username:
+        if set_status_false(username):
+            return f"Статус пользователя {username} был отключен."
+        else:
+            return "Не удалось отключить статус."
     return ""
 
 # Запуск приложения
