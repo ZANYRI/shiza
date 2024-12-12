@@ -1,4 +1,4 @@
-from dash import Dash, html, Output, Input
+from dash import Dash, html, dcc, Input, Output
 from flask import Flask, session
 import dash_auth
 import requests
@@ -48,22 +48,32 @@ def auth_func(username, password):
 # Настройка BasicAuth для Dash
 auth = dash_auth.BasicAuth(app, auth_func=auth_func)
 
-# Определение layout на основе роли
-app.layout = html.Div(id='page-content')
+# Главный layout приложения
+app.layout = html.Div([
+    dcc.Location(id='url', refresh=False),
+    html.Div(id='page-content')
+])
 
 # Callback для динамического отображения страниц
 @app.callback(
     Output('page-content', 'children'),
-    Input('page-content', 'id')  # Заглушка для вызова callback
+    Input('url', 'pathname')
 )
-def display_page(_):
+def display_page(pathname):
     role = session.get('role')
     if role == 'role1':
+        if pathname == '/role2':
+            return role2_layout(role)
         return role1_layout(role)
     elif role == 'role2':
+        if pathname == '/role1':
+            return role1_layout(role)
         return role2_layout(role)
     else:
-        return html.Div("У вас нет доступа к этому приложению.")
+        return html.Div([
+            html.H1("Главная страница"),
+            html.P("У вас нет доступа или вы не авторизованы.")
+        ])
 
 # Запуск приложения
 if __name__ == "__main__":
