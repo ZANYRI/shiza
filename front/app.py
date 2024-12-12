@@ -1,9 +1,10 @@
-from dash import Dash, html, dcc, Input, Output
+from dash import Dash, html, dcc, Input, Output, State
 from flask import Flask, session
 import dash_auth
 import requests
 from role1_page import get_layout as role1_layout
 from role2_page import get_layout as role2_layout
+from chat_data import messages
 
 # URL сервера Flask для аутентификации
 SERVER_URL = "http://127.0.0.1:5000/auth"
@@ -62,18 +63,25 @@ app.layout = html.Div([
 def display_page(pathname):
     role = session.get('role')
     if role == 'role1':
-        if pathname == '/role2':
-            return role2_layout(role)
         return role1_layout(role)
     elif role == 'role2':
-        if pathname == '/role1':
-            return role1_layout(role)
-        return role2_layout(role)
+        return role2_layout(role, messages)
     else:
         return html.Div([
             html.H1("Главная страница"),
             html.P("У вас нет доступа или вы не авторизованы.")
         ])
+
+# Callback для добавления слова "Привет" (role1)
+@app.callback(
+    Output('status', 'children'),
+    Input('send-button', 'n_clicks')
+)
+def send_message(n_clicks):
+    if n_clicks > 0:
+        messages.append("Привет от role1!")
+        return "Сообщение отправлено!"
+    return ""
 
 # Запуск приложения
 if __name__ == "__main__":
