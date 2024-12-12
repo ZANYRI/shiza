@@ -1,4 +1,4 @@
-from dash import Dash, html, dcc, Input, Output, State
+from dash import Dash, html, dcc, Input, Output
 import dash_auth
 import requests
 import time
@@ -8,13 +8,12 @@ SERVER_URL = "http://127.0.0.1:5000/auth"
 
 # Параметры сессии
 SESSION_TIMEOUT = 300  # Время жизни сессии (в секундах)
-ACTIVITY_TIMEOUT = 60  # Время бездействия до выхода из сессии (в секундах)
+session_start_time = None  # Время старта сессии
+last_activity_time = None  # Время последней активности пользователя
 
 # Глобальные переменные для пользователя
 current_user = None
 current_role = None
-session_start_time = None
-last_activity_time = None  # Время последней активности пользователя
 
 # Функция проверки аутентификации
 def authenticate_user(username, password):
@@ -57,65 +56,36 @@ app.layout = html.Div([
         "padding": "10px",
         "border-radius": "8px"
     }),
-    html.Div(id="page-content")  # Основной контент
+    html.Div(id="page-content", children="Добро пожаловать!")
 ])
 
-# Функция главной страницы
-def main_page(user_name, user_role):
-    return html.Div(
-        style={
-            "display": "flex",
-            "justify-content": "center",
-            "align-items": "center",
-            "height": "100vh",
-            "background-color": "#eaf4fc"
-        },
-        children=html.Div(
-            style={
-                "text-align": "center"
-            },
-            children=[
-                html.H1(f"Добро пожаловать, {user_role}!", style={"margin-bottom": "20px"}),
-                html.P(f"Ваше имя: {user_name}")
-            ]
-        )
-    )
-
-# Callback для обновления контента
+# Callback для проверки активности и завершения сессии
 @app.callback(
     [Output("page-content", "children"), Output("greeting", "children")],
-    [Input("session-checker", "n_intervals"), Input("page-content", "n_clicks")],  # Добавляем обработчик кликов
-    [State("session-checker", "n_intervals")]
+    Input("session-checker", "n_intervals")
 )
-def update_page(n_intervals, n_clicks, last_interval):
+def check_session(n_intervals):
     global current_user, current_role, session_start_time, last_activity_time
 
     # Если пользователь не аутентифицирован
     if not current_user or not current_role:
-        return html.Div("Ошибка авторизации"), ""
+        return "Ошибка авторизации", ""
 
-    # Проверяем, не истекла ли сессия
-    if time.time() - session_start_time > SESSION_TIMEOUT:
+    # Проверяем, не истекла ли сессия из-за бездействия
+    if time.time() - last_activity_time > SESSION_TIMEOUT:
+        # Сброс глобальных переменных для завершения аутентификации
         current_user = None
         current_role = None
         session_start_time = None
         last_activity_time = None
-        return html.Div("Ваша сессия истекла. Перезагрузите страницу для повторной авторизации."), ""
+        # Выходим из приложения путем вызова функции auth_func с результатом False
+        auth.users = {}
+        return "Сессия завершена из-за бездействия. Перезагрузите страницу для повторной авторизации.", ""
 
-    # Если не было активности в течение времени, указанного в ACTIVITY_TIMEOUT
-    if time.time() - last_activity_time > ACTIVITY_TIMEOUT:
-        current_user = None
-        current_role = None
-        session_start_time = None
-        last_activity_time = None
-        return html.Div("Ваша сессия истекла из-за бездействия. Перезагрузите страницу для повторной авторизации."), ""
-
-    # Обновляем время последней активности
-    last_activity_time = time.time()
-
-    # Время жизни сессии не истекло, показываем основную страницу
+    # Если сессия активна
+    last_activity_time = time.time()  # Обновляем время последней активности
     greeting = f"Здравствуй, {current_user} ({current_role})"
-    return main_page(current_user, current_role), greeting
+    return "Добро пожаловать!", greeting
 
 # Запуск приложения
 if __name__ == "__main__":
