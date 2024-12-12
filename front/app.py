@@ -1,5 +1,5 @@
-from dash import Dash, html, dcc
-from flask import Flask, session, redirect, url_for
+from dash import Dash, html
+from flask import Flask, session
 import dash_auth
 import requests
 from admin_page import get_layout as admin_layout
@@ -59,9 +59,9 @@ app.layout = html.Div(id='page-content')
 def display_page():
     role = session.get('role')
     if role == 'admin':
-        return admin_layout()
+        return admin_layout(role)
     elif role == 'user':
-        return user_layout()
+        return user_layout(role)
     else:
         return html.Div("У вас нет доступа к этому приложению.")
 
