@@ -30,13 +30,24 @@ def authenticate_user(username, password):
 # Функция для dash_auth
 def auth_func(username, password):
     global current_user, current_role, last_activity_time
+    
+    # Проверка, не истекло ли время сессии
+    if last_activity_time and (time.time() - last_activity_time > SESSION_TIMEOUT):
+        current_user = None
+        current_role = None
+        last_activity_time = None
+        return False
+
+    # Аутентификация пользователя
     is_authenticated, role, user = authenticate_user(username, password)
     if is_authenticated:
         current_user = user
         current_role = role
         last_activity_time = time.time()  # Установка времени последней активности
         return True
+    
     return False
+
 
 # Создание приложения
 app = Dash(__name__, suppress_callback_exceptions=True)
