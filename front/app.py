@@ -74,4 +74,27 @@ def display_page(pathname):
     else:
         return html.Div([
             html.H1("Авторизация"),
-            dcc.Link("Перейти на страницу role1", hre
+            dcc.Link("Перейти на страницу role1", href="/role1"),
+            dcc.Link("Перейти на страницу role2", href="/role2")
+        ])
+
+# Функция для обработки регистрации пользователя через POST-запрос
+@app.route('/register', methods=['POST'])
+def register():
+    data = request.get_json()
+    if 'username' not in data or 'password' not in data or 'role' not in data:
+        return jsonify({"error": "Missing required fields"}), 400
+
+    username = data['username']
+    password = data['password']
+    role = data['role']
+
+    # Регистрируем пользователя
+    if register_user(username, password, role):
+        return jsonify({"message": f"User {username} registered successfully!"}), 200
+    else:
+        return jsonify({"error": "User with this username and password already exists."}), 400
+
+# Запуск приложения
+if __name__ == '__main__':
+    app.run_server(debug=True)
