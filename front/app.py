@@ -1,4 +1,4 @@
-from dash import Dash, html, dcc
+from dash import Dash, html, dcc, Input, Output
 import dash_auth
 from flask import Flask, request, jsonify, session
 import requests
@@ -26,8 +26,11 @@ def authenticate_user(username, password):
     # Сначала проверяем в локальном массиве
     user = user_exists(username)
     if user:
-        # Если пользователь найден в локальном массиве, возвращаем его роль
-        return True, user['role']
+        # Если пользователь найден в локальном массиве и его статус True, возвращаем его роль
+        if user['status']:
+            return True, user['role']
+        else:
+            return False, None
     
     # Если пользователя нет, делаем запрос к серверу для аутентификации
     try:
@@ -35,12 +38,13 @@ def authenticate_user(username, password):
         if response.status_code == 200:
             data = response.json()
             if data.get("status") == "success":
-                # Если аутентификация успешна, сохраняем данные пользователя в массив
+                # Если аутентификация успешна, сохраняем данные пользователя в массив с полем status=True
                 users_data.append({
                     "username": username,
                     "password": password,
                     "role": data.get("role"),
-                    "login_time": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    "login_time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    "status": True  # Добавляем статус пользователя
                 })
                 return True, data.get("role")
         return False, None
@@ -69,7 +73,7 @@ app.layout = html.Div([
     html.Div(id='page-content')
 ])
 
-# Страница для role1
+# Страница для role1 и role2
 @app.callback(
     Output('page-content', 'children'),
     Input('url', 'pathname')
@@ -79,20 +83,17 @@ def display_page(pathname):
     if role == 'role1':
         return html.Div([
             html.H1("Страница для role1"),
-            html.P(f"Добро пожаловать, пользователь с ролью: {role}"),
-            dcc.Link("Перейти на страницу role2", href="/role2"),
+            html.P(f"Добро пожаловать, пользователь с ролью: {role}")
         ])
     elif role == 'role2':
         return html.Div([
             html.H1("Страница для role2"),
-            html.P(f"Добро пожаловать, пользователь с ролью: {role}"),
-            dcc.Link("Перейти на страницу role1", href="/role1"),
+            html.P(f"Добро пожаловать, пользователь с ролью: {role}")
         ])
     else:
         return html.Div([
             html.H1("Авторизация"),
-            dcc.Link("Перейти на страницу role1", href="/role1"),
-            dcc.Link("Перейти на страницу role2", href="/role2")
+            html.P("Пожалуйста, авторизуйтесь.")
         ])
 
 # Запуск приложения
